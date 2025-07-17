@@ -1,87 +1,161 @@
 ﻿using Mall_Linking_Alliance.Model;
 using System;
 using System.Data.SQLite;
+using System.IO;
+using System.Windows.Forms;
 
 namespace Mall_Linking_Alliance.Helpers
 {
     public static class SettingsManager
     {
-        // 🔷 What’s this for?  
-        // Defines the connection string to your SQLite database.
-        // Uses the same folder where your app runs (StartupPath) and opens your `.db` file.
+        // 🔷 Database path and connection string
+        private static readonly string DatabasePath =
+            Path.Combine(Application.StartupPath, "Alliance_DB.db");
+
         private static readonly string ConnectionString =
-            $"Data Source={System.Windows.Forms.Application.StartupPath}\\Alliance_DB.db;Version=3;";
+            $"Data Source={DatabasePath};Version=3;";
 
         /// <summary>
-        /// 🔷 What’s this for?  
-        /// Reads the first row from `tblsettings` table in your DB
-        /// and loads it into a TblSettings object in memory.
+        /// 🔷 Initializes the database and creates the table if it doesn't exist
+        /// </summary>
+        public static void InitializeDatabase()
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(ConnectionString))
+                {
+                    connection.Open();
+
+                    // Create the table if it doesn't exist
+                    using (var command = new SQLiteCommand(@"
+                        CREATE TABLE IF NOT EXISTS tblsettings (
+                            tenantid INTEGER,
+                            tenantkey TEXT,
+                            tmid INTEGER,
+                            doc TEXT,
+                            browsedb TEXT,
+                            savedb TEXT
+                        )", connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+
+                    // Insert default row if table is empty
+                    using (var command = new SQLiteCommand(@"
+                        INSERT INTO tblsettings (tenantid, tenantkey, tmid, doc, browsedb, savedb)
+                        SELECT NULL, NULL, NULL, NULL, NULL, NULL
+                        WHERE NOT EXISTS (SELECT 1 FROM tblsettings)", connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Database initialization error: {ex.Message}",
+                    "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// 🔷 Loads settings from database with error handling
         /// </summary>
         public static TblSettings LoadSettings()
         {
             TblSettings settings = new TblSettings();
 
-            using (var connection = new SQLiteConnection(ConnectionString))
+            try
             {
-                connection.Open();
-
-                using (var command = new SQLiteCommand(
-                    "SELECT tenantid, tenantkey, tmid, doc, browsedb, savedb FROM tblsettings LIMIT 1",
-                    connection))
-                using (var reader = command.ExecuteReader())
+                // Make sure database exists
+                if (!File.Exists(DatabasePath))
                 {
-                    if (reader.Read()) // 🔷 What’s this for?  
-                                       // Checks if at least 1 row exists
+                    InitializeDatabase();
+                }
+
+                using (var connection = new SQLiteConnection(ConnectionString))
+                {
+                    connection.Open();
+
+                    using (var command = new SQLiteCommand(
+                        "SELECT tenantid, tenantkey, tmid, doc, browsedb, savedb FROM tblsettings LIMIT 1",
+                        connection))
+                    using (var reader = command.ExecuteReader())
                     {
-                        // 🔷 What’s this for?  
-                        // Reads each column from DB row and sets it into our settings object.
-                        settings.TenantId = reader["tenantid"] as int?;
-                        settings.TenantKey = reader["tenantkey"]?.ToString();
-                        settings.TmId = reader["tmid"] as int?;
-                        settings.Doc = reader["doc"]?.ToString();
-                        settings.BrowseDb = reader["browsedb"]?.ToString();
-                        settings.SaveDb = reader["savedb"]?.ToString();
+                        if (reader.Read())
+                        {
+                            settings.TenantId = reader["tenantid"] as int?;
+                            settings.TenantKey = reader["tenantkey"]?.ToString();
+                            settings.TmId = reader["tmid"] as int?;
+                            settings.Doc = reader["doc"]?.ToString();
+                            settings.BrowseDb = reader["browsedb"]?.ToString();
+                            settings.SaveDb = reader["savedb"]?.ToString();
+                        }
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading settings: {ex.Message}",
+                    "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
 
-            return settings; // 🔷 Returns the settings loaded from DB
+            return settings;
         }
 
         /// <summary>
-        /// 🔷 What’s this for?  
-        /// Saves (updates) your settings back into the `tblsettings` table in DB.
-        /// Overwrites the first row with new values.
+        /// 🔷 Saves settings using INSERT OR REPLACE to handle both insert and update
         /// </summary>
         public static void SaveSettings(TblSettings settings)
         {
-            using (var connection = new SQLiteConnection(ConnectionString))
+            try
             {
-                connection.Open();
-
-                using (var command = new SQLiteCommand(
-                    @"UPDATE tblsettings SET 
-                        tenantid = @tenantid,
-                        tenantkey = @tenantkey,
-                        tmid = @tmid,
-                        doc = @doc,
-                        browsedb = @browsedb,
-                        savedb = @savedb",
-                    connection))
+                using (var connection = new SQLiteConnection(ConnectionString))
                 {
-                    // 🔷 What’s this for?  
-                    // Assigns the values from our `settings` object into SQL parameters.
-                    // If a field is null, sends DBNull.Value (since DB cannot store C# null)
-                    command.Parameters.AddWithValue("@tenantid", settings.TenantId.HasValue ? (object)settings.TenantId.Value : DBNull.Value);
-                    command.Parameters.AddWithValue("@tenantkey", settings.TenantKey ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@tmid", settings.TmId.HasValue ? (object)settings.TmId.Value : DBNull.Value);
-                    command.Parameters.AddWithValue("@doc", settings.Doc ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@browsedb", settings.BrowseDb ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@savedb", settings.SaveDb ?? (object)DBNull.Value);
+                    connection.Open();
 
-                    command.ExecuteNonQuery(); // 🔷 Executes the UPDATE statement
+                    // Delete existing data and insert new (simpler than INSERT OR REPLACE)
+                    using (var command = new SQLiteCommand("DELETE FROM tblsettings", connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+
+                    // Insert the new settings
+                    using (var command = new SQLiteCommand(@"
+                        INSERT INTO tblsettings (tenantid, tenantkey, tmid, doc, browsedb, savedb)
+                        VALUES (@tenantid, @tenantkey, @tmid, @doc, @browsedb, @savedb)", connection))
+                    {
+                        command.Parameters.AddWithValue("@tenantid", settings.TenantId.HasValue ? (object)settings.TenantId.Value : DBNull.Value);
+                        command.Parameters.AddWithValue("@tenantkey", settings.TenantKey ?? (object)DBNull.Value);
+                        command.Parameters.AddWithValue("@tmid", settings.TmId.HasValue ? (object)settings.TmId.Value : DBNull.Value);
+                        command.Parameters.AddWithValue("@doc", settings.Doc ?? (object)DBNull.Value);
+                        command.Parameters.AddWithValue("@browsedb", settings.BrowseDb ?? (object)DBNull.Value);
+                        command.Parameters.AddWithValue("@savedb", settings.SaveDb ?? (object)DBNull.Value);
+
+                        command.ExecuteNonQuery();
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error saving settings: {ex.Message}",
+                    "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// 🔷 Checks if the database file exists
+        /// </summary>
+        public static bool DatabaseExists()
+        {
+            return File.Exists(DatabasePath);
+        }
+
+        /// <summary>
+        /// 🔷 Gets the full path to the database file
+        /// </summary>
+        public static string GetDatabasePath()
+        {
+            return DatabasePath;
         }
     }
 }

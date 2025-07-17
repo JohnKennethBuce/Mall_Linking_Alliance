@@ -38,10 +38,21 @@ namespace Mall_Linking_Alliance
 
             XmlDirectory = Settings.BrowseDb;
 
+            // If invalid, default to Desktop and save it
             if (string.IsNullOrWhiteSpace(XmlDirectory) || !Directory.Exists(XmlDirectory))
             {
-                MessageBox.Show("⚠️ XML directory path is invalid or not configured. Please set it in Config.");
+                XmlDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "XMLWatcher");
+                Settings.BrowseDb = XmlDirectory;
+
+                Directory.CreateDirectory(XmlDirectory);
+                SettingsManager.SaveSettings(Settings);
+
+                MessageBox.Show($"⚠️ XML directory was invalid. Defaulting to: {XmlDirectory}", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
+
+            // Always ensure subfolders exist
+            Directory.CreateDirectory(Path.Combine(XmlDirectory, "ProcessedFiles"));
+            Directory.CreateDirectory(Path.Combine(XmlDirectory, "DeniedFiles"));
         }
 
         /// <summary>
