@@ -16,48 +16,6 @@ namespace Mall_Linking_Alliance.Helpers
             $"Data Source={DatabasePath};Version=3;";
 
         /// <summary>
-        /// 🔷 Initializes the database and creates the table if it doesn't exist
-        /// </summary>
-        public static void InitializeDatabase()
-        {
-            try
-            {
-                using (var connection = new SQLiteConnection(ConnectionString))
-                {
-                    connection.Open();
-
-                    // Create the table if it doesn't exist
-                    using (var command = new SQLiteCommand(@"
-                        CREATE TABLE IF NOT EXISTS tblsettings (
-                            tenantid INTEGER,
-                            tenantkey TEXT,
-                            tmid INTEGER,
-                            doc TEXT,
-                            browsedb TEXT,
-                            savedb TEXT
-                        )", connection))
-                    {
-                        command.ExecuteNonQuery();
-                    }
-
-                    // Insert default row if table is empty
-                    using (var command = new SQLiteCommand(@"
-                        INSERT INTO tblsettings (tenantid, tenantkey, tmid, doc, browsedb, savedb)
-                        SELECT NULL, NULL, NULL, NULL, NULL, NULL
-                        WHERE NOT EXISTS (SELECT 1 FROM tblsettings)", connection))
-                    {
-                        command.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Database initialization error: {ex.Message}",
-                    "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        /// <summary>
         /// 🔷 Loads settings from database with error handling
         /// </summary>
         public static TblSettings LoadSettings()
@@ -66,11 +24,6 @@ namespace Mall_Linking_Alliance.Helpers
 
             try
             {
-                // Make sure database exists
-                if (!File.Exists(DatabasePath))
-                {
-                    InitializeDatabase();
-                }
 
                 using (var connection = new SQLiteConnection(ConnectionString))
                 {

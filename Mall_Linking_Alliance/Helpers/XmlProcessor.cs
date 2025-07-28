@@ -38,13 +38,28 @@ namespace Mall_Linking_Alliance.Helpers
             Logger.Info($"✅ Processed: {Path.GetFileName(fileName)}", "XmlProcessor");
             return true;
         }
+        private static string SanitizeXmlEntities(string xml)
+        {
+            if (string.IsNullOrWhiteSpace(xml)) return xml;
 
+            // Replace raw ampersands not part of valid entity references
+            return System.Text.RegularExpressions.Regex.Replace(
+                xml,
+                @"&(?![a-zA-Z]+;|#\d+;)", // matches & not followed by valid entity
+                "&amp;"
+            );
+        }
+        private static string GetValueOrNA(XElement element)
+        {
+            return string.IsNullOrWhiteSpace(element?.Value) ? "NA" : element.Value;
+        }
         private static XmlProcessingResult ProcessXml(string xmlContent, string fileName, TblSettings settings)
         {
             var result = new XmlProcessingResult();
 
             try
             {
+                var sanitizedXml = SanitizeXmlEntities(xmlContent);
                 var doc = XDocument.Parse(xmlContent);
 
                 string dbPath = settings.SaveDb;
@@ -70,6 +85,7 @@ namespace Mall_Linking_Alliance.Helpers
                 DatabaseHelper.InsertSettings(tblSettings, dbPath);
 
                 // 🔷 SALES + SALES LINE
+
                 var sales = doc.Root.Element("sales");
                 if (sales != null)
                 {
@@ -112,7 +128,7 @@ namespace Mall_Linking_Alliance.Helpers
                             Gross = ParseDecimal(trx.Element("gross")?.Value),
                             TaxRate = ParseDecimal(trx.Element("taxrate")?.Value),
                             Posted = ParseInt(trx.Element("posted")?.Value),
-                            Memo = trx.Element("memo")?.Value,
+                            Memo = GetValueOrNA(trx.Element("memo")),
                             Qty = ParseInt(trx.Element("qty")?.Value)
                         };
                         DatabaseHelper.InsertSales(tblSales, dbPath);
@@ -130,12 +146,11 @@ namespace Mall_Linking_Alliance.Helpers
                 }
 
                 // 🔷 MASTER
-                foreach (var master in doc.Root.Elements("master"))
+                foreach (var master in doc.Descendants("master"))
                 {
                     var prod = master.Element("product");
                     var tblMaster = new TblMaster
                     {
-                        ReceiptNo = null,
                         Sku = prod.Element("sku")?.Value,
                         Name = prod.Element("name")?.Value,
                         Inventory = ParseInt(prod.Element("inventory")?.Value),
@@ -144,6 +159,66 @@ namespace Mall_Linking_Alliance.Helpers
                     };
                     DatabaseHelper.InsertMaster(tblMaster, dbPath);
                 }
+
+                // 🔷 EOD
+                var eod = doc.Root.Element("eod");
+                if (eod != null)
+                {
+                    var tblEod = new TblEod
+                    {
+                        Date = eod.Element("date")?.Value,
+                        ZCounter = ParseInt(eod.Element("zcounter")?.Value),
+                        PreviousNrgt = ParseDecimal(eod.Element("previousnrgt")?.Value),
+                        Nrgt = ParseDecimal(eod.Element("nrgt")?.Value),
+                        PreviousTax = ParseDecimal(eod.Element("previoustax")?.Value),
+                        NewTax = ParseDecimal(eod.Element("newtax")?.Value),
+                        PreviousTaxSale = ParseDecimal(eod.Element("previoustaxsale")?.Value),
+                        NewTaxSale = ParseDecimal(eod.Element("newtaxsale")?.Value),
+                        PreviousNoTaxSale = ParseDecimal(eod.Element("previousnotaxsale")?.Value),
+                        NewNoTaxSale = ParseDecimal(eod.Element("newnotaxsale")?.Value),
+                        OpenTime = ParseInt(eod.Element("opentime")?.Value) ?? 0,
+                        CloseTime = ParseInt(eod.Element("closetime")?.Value) ?? 0,
+                        Gross = ParseDecimal(eod.Element("gross")?.Value),
+                        Vat = ParseDecimal(eod.Element("vat")?.Value),
+                        LocalTax = ParseDecimal(eod.Element("localtax")?.Value),
+                        Amusement = ParseDecimal(eod.Element("amusement")?.Value),
+                        Ewt = ParseDecimal(eod.Element("ewt")?.Value),
+                        TaxSale = ParseDecimal(eod.Element("taxsale")?.Value),
+                        NoTaxSale = ParseDecimal(eod.Element("notaxsale")?.Value),
+                        ZeroSale = ParseDecimal(eod.Element("zerosale")?.Value),
+                        VatExempt = ParseDecimal(eod.Element("vatexempt")?.Value),
+                        Void = ParseDecimal(eod.Element("void")?.Value),
+                        VoidCnt = ParseInt(eod.Element("voidcnt")?.Value),
+                        Disc = ParseDecimal(eod.Element("disc")?.Value),
+                        DiscCnt = ParseInt(eod.Element("disccnt")?.Value),
+                        Refund = ParseDecimal(eod.Element("refund")?.Value),
+                        RefundCnt = ParseInt(eod.Element("refundcnt")?.Value),
+                        Senior = ParseDecimal(eod.Element("senior")?.Value),
+                        SeniorCnt = ParseInt(eod.Element("seniorcnt")?.Value),
+                        Pwd = ParseDecimal(eod.Element("pwd")?.Value),
+                        PwdCnt = ParseInt(eod.Element("pwdcnt")?.Value),
+                        Diplomat = ParseDecimal(eod.Element("diplomat")?.Value),
+                        DiplomatCnt = ParseInt(eod.Element("diplomatcnt")?.Value),
+                        Service = ParseDecimal(eod.Element("service")?.Value),
+                        ServiceCnt = ParseInt(eod.Element("servicecnt")?.Value),
+                        ReceiptStart = eod.Element("receiptstart")?.Value,
+                        ReceiptEnd = eod.Element("receiptend")?.Value,
+                        TrxCnt = ParseInt(eod.Element("trxcnt")?.Value),
+                        Cash = ParseDecimal(eod.Element("cash")?.Value),
+                        CashCnt = ParseInt(eod.Element("cashcnt")?.Value),
+                        Credit = ParseDecimal(eod.Element("credit")?.Value),
+                        CreditCnt = ParseInt(eod.Element("creditcnt")?.Value),
+                        Charge = ParseDecimal(eod.Element("charge")?.Value),
+                        ChargeCnt = ParseInt(eod.Element("chargecnt")?.Value),
+                        GiftCheck = ParseDecimal(eod.Element("giftcheck")?.Value),
+                        GiftCheckCnt = ParseInt(eod.Element("giftcheckcnt")?.Value),
+                        OtherTender = ParseDecimal(eod.Element("othertender")?.Value),
+                        OtherTenderCnt = ParseInt(eod.Element("othertendercnt")?.Value)
+                    };
+
+                    DatabaseHelper.InsertEod(tblEod, dbPath); // You’ll implement this next
+                }
+
 
                 result.Message = "Processed and saved to database successfully.";
                 result.Success = true;
@@ -156,35 +231,53 @@ namespace Mall_Linking_Alliance.Helpers
                 result.Message = $"Exception: {ex.Message}";
                 return result;
             }
+
+
         }
 
         private static List<TblSalesLine> ParseSalesLines(XElement line, string receiptNo)
         {
-            var children = line.Elements();
+            var children = line.Elements().ToList();
             var result = new List<TblSalesLine>();
 
-            for (int i = 0; i < children.Count(); i += 10)
+            const int FieldsPerItem = 11;
+
+            if (children.Count % FieldsPerItem != 0)
             {
-                var item = new TblSalesLine
+                Logger.Error($"Invalid number of <salesline> child elements: Expected multiples of {FieldsPerItem}, but got {children.Count}.");
+                return result;
+            }
+
+            for (int i = 0; i < children.Count; i += FieldsPerItem)
+            {
+                try
                 {
-                    ReceiptNo = receiptNo,
-                    Sku = children.ElementAt(i)?.Value,
-                    Qty = ParseDecimal(children.ElementAt(i + 1)?.Value),
-                    UnitPrice = ParseDecimal(children.ElementAt(i + 2)?.Value),
-                    Disc = ParseDecimal(children.ElementAt(i + 3)?.Value),
-                    Senior = ParseDecimal(children.ElementAt(i + 4)?.Value),
-                    Pwd = ParseDecimal(children.ElementAt(i + 5)?.Value),
-                    Diplomat = ParseDecimal(children.ElementAt(i + 6)?.Value),
-                    TaxType = ParseDecimal(children.ElementAt(i + 7)?.Value),
-                    Tax = ParseDecimal(children.ElementAt(i + 8)?.Value),
-                    Memo = children.ElementAt(i + 9)?.Value,
-                    Total = ParseDecimal(children.ElementAt(i + 10)?.Value)
-                };
-                result.Add(item);
+                    var item = new TblSalesLine
+                    {
+                        ReceiptNo = receiptNo,
+                        Sku = children[i]?.Value,
+                        Qty = ParseDecimal(children[i + 1]?.Value),
+                        UnitPrice = ParseDecimal(children[i + 2]?.Value),
+                        Disc = ParseDecimal(children[i + 3]?.Value),
+                        Senior = ParseDecimal(children[i + 4]?.Value),
+                        Pwd = ParseDecimal(children[i + 5]?.Value),
+                        Diplomat = ParseDecimal(children[i + 6]?.Value),
+                        TaxType = ParseDecimal(children[i + 7]?.Value),
+                        Tax = ParseDecimal(children[i + 8]?.Value),
+                        Memo = children[i + 9]?.Value,
+                        Total = ParseDecimal(children[i + 10]?.Value)
+                    };
+                    result.Add(item);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error parsing salesline block at index {i}: {ex.Message}");
+                }
             }
 
             return result;
         }
+
 
         private static void WriteDeniedLog(string deniedFilePath, XmlProcessingResult result)
         {

@@ -61,6 +61,22 @@ namespace Mall_Linking_Alliance
         /// </summary>
         private void btn_BrowseDb_Click(object sender, EventArgs e)
         {
+            using (FolderBrowserDialog fbd = new FolderBrowserDialog())
+            {
+                fbd.Description = "Select folder to watch for XML files";
+                if (fbd.ShowDialog() == DialogResult.OK)
+                {
+                    txt_BrowseDb.Text = fbd.SelectedPath;
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// Browse for folder to set SaveDb path.
+        /// </summary>
+        private void btn_SaveDb_Click(object sender, EventArgs e)
+        {
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
                 ofd.Filter = "SQLite Database (*.db)|*.db|All files (*.*)|*.*";
@@ -68,21 +84,6 @@ namespace Mall_Linking_Alliance
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     txt_SaveDb.Text = ofd.FileName;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Browse for folder to set SaveDb path.
-        /// </summary>
-        private void btn_SaveDb_Click(object sender, EventArgs e)
-        {
-            using (FolderBrowserDialog fbd = new FolderBrowserDialog())
-            {
-                fbd.Description = "Select folder for SaveDb";
-                if (fbd.ShowDialog() == DialogResult.OK)
-                {
-                    txt_SaveDb.Text = fbd.SelectedPath;
                 }
             }
         }

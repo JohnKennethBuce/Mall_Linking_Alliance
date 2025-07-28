@@ -38,10 +38,21 @@ namespace Mall_Linking_Alliance
 
             XmlDirectory = Settings.BrowseDb;
 
+            if (string.IsNullOrWhiteSpace(Settings.SaveDb))
+            {
+                Settings.SaveDb = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Alliance_DB.db");
+                SettingsManager.SaveSettings(Settings); // save this fallback path
+            }
+
+            // Ensure database structure exists now that path is guaranteed
+            DatabaseInitializer.EnsureDatabaseStructure(Settings.SaveDb);
+
+
             // If invalid, default to Desktop and save it
             if (string.IsNullOrWhiteSpace(XmlDirectory) || !Directory.Exists(XmlDirectory))
             {
-                XmlDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "XMLWatcher");
+                XmlDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XMLWatcher");
+
                 Settings.BrowseDb = XmlDirectory;
 
                 Directory.CreateDirectory(XmlDirectory);

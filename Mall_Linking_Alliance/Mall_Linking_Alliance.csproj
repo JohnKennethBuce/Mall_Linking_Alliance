@@ -79,6 +79,7 @@
       <DependentUpon>frm_Main.cs</DependentUpon>
     </Compile>
     <Compile Include="Helpers\DatabaseHelper.cs" />
+    <Compile Include="Helpers\DatabaseInitializer.cs" />
     <Compile Include="Helpers\Logger.cs" />
     <Compile Include="Helpers\SettingsManager.cs" />
     <Compile Include="Helpers\XmlProcessingResult.cs" />
