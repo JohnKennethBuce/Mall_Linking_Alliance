@@ -118,13 +118,11 @@ CREATE INDEX IF NOT EXISTS idx_salesline_sku ON tblsalesline(sku);
                     // tblmaster
                     CreateIfMissing("tblmaster", @"
 CREATE TABLE tblmaster (
-    sku             TEXT,
+    sku             TEXT PRIMARY KEY,
     name            TEXT,
     inventory       INTEGER,
     price           NUMERIC DEFAULT 0,
     category        TEXT,
-    PRIMARY KEY (receiptno, sku),
-    FOREIGN KEY (receiptno) REFERENCES tblsales (receiptno),
     FOREIGN KEY (sku) REFERENCES tblsalesline (sku)
 );
 CREATE INDEX IF NOT EXISTS idx_master_sku ON tblmaster(sku);

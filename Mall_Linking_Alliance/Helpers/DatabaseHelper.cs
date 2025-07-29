@@ -195,8 +195,8 @@ namespace Mall_Linking_Alliance.Helpers
                     conn.Open();
 
                     string sql = @"
-                        INSERT INTO tblmaster (receiptno, sku, name, inventory, price, category) 
-                        VALUES (@receiptno, @sku, @name, @inventory, @price, @category);";
+                        INSERT OR IGNORE INTO tblmaster (sku, name, inventory, price, category) 
+                        VALUES (@sku, @name, @inventory, @price, @category);";
 
                     using (var cmd = new SQLiteCommand(sql, conn))
                     {

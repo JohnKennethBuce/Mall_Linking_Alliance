@@ -146,6 +146,37 @@ namespace Mall_Linking_Alliance.Helpers
                 }
 
                 // 🔷 MASTER
+                // 🔍 1. Duplicate check BEFORE insertion
+                var seenSkus = new HashSet<string>();
+                bool isDuplicate = false;
+                string duplicatedSku = null;
+
+                foreach (var master in doc.Descendants("master"))
+                {
+                    var prod = master.Element("product");
+                    var sku = prod.Element("sku")?.Value;
+
+                    if (!string.IsNullOrEmpty(sku))
+                    {
+                        if (!seenSkus.Add(sku))
+                        {
+                            isDuplicate = true;
+                            duplicatedSku = sku;
+                            break; // stop on first duplicate
+                        }
+                    }
+                }
+
+                // 🚫 2. Stop processing if duplicate found
+                if (isDuplicate)
+                {
+                    result.Success = false;
+                    result.HasErrors = true;
+                    result.Message = "Duplicate SKU found in <master>: " + duplicatedSku;
+                    return result;
+                }
+
+                // ✅ 3. Safe to process and insert now
                 foreach (var master in doc.Descendants("master"))
                 {
                     var prod = master.Element("product");
@@ -279,17 +310,34 @@ namespace Mall_Linking_Alliance.Helpers
         }
 
 
-        private static void WriteDeniedLog(string deniedFilePath, XmlProcessingResult result)
+        private static void WriteDeniedLog(string xmlFilePath, XmlProcessingResult result)
         {
+
+            string deniedFolder = Path.Combine(Path.GetDirectoryName(xmlFilePath), "DeniedFiles");
+            Directory.CreateDirectory(deniedFolder);
+
+            string fileName = Path.GetFileName(xmlFilePath);
+            string deniedFilePath = Path.Combine(deniedFolder, fileName);
             string logPath = Path.ChangeExtension(deniedFilePath, ".txt");
 
+            // Move the duplicate XML to DeniedFiles folder
+            if (!File.Exists(deniedFilePath))
+                File.Move(xmlFilePath, deniedFilePath);
+
+            // Write the .txt log with reason
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"🗓️ Date: {DateTime.Now}");
-            sb.AppendLine($"📄 File: {Path.GetFileName(deniedFilePath)}");
-            sb.AppendLine($"❌ Reason: {result.Message}");
+            sb.AppendLine($"📄 File: {fileName}");
+            sb.AppendLine($"❌ Denied Reason:");
+            sb.AppendLine($"  - {result.Message}");
+
 
             File.WriteAllText(logPath, sb.ToString());
+
+            // Optional: Log globally too
+            Logger.Warn($"File denied: {fileName} - {result.Message}", "XML Processor");
         }
+
 
         private static int? ParseInt(string s)
         {
