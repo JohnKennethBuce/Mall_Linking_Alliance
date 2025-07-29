@@ -200,7 +200,6 @@ namespace Mall_Linking_Alliance.Helpers
 
                     using (var cmd = new SQLiteCommand(sql, conn))
                     {
-                        cmd.Parameters.AddWithValue("@receiptno", m.ReceiptNo);
                         cmd.Parameters.AddWithValue("@sku", m.Sku);
                         cmd.Parameters.AddWithValue("@name", m.Name ?? "");
                         cmd.Parameters.AddWithValue("@inventory", m.Inventory ?? 0);
