@@ -94,21 +94,5 @@ namespace Mall_Linking_Alliance.Helpers
                     "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-        /// <summary>
-        /// 🔷 Checks if the database file exists
-        /// </summary>
-        public static bool DatabaseExists()
-        {
-            return File.Exists(DatabasePath);
-        }
-
-        /// <summary>
-        /// 🔷 Gets the full path to the database file
-        /// </summary>
-        public static string GetDatabasePath()
-        {
-            return DatabasePath;
-        }
     }
 }

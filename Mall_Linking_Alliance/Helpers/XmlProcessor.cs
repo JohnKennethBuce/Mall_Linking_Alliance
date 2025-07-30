@@ -12,14 +12,27 @@ namespace Mall_Linking_Alliance.Helpers
     {
         public static bool Process(string xmlContent, string fileName, TblSettings settings)
         {
-            var result = ProcessXml(xmlContent, fileName, settings);
+            XmlProcessingResult result = null;
+
+            try
+            {
+                result = ProcessXml(xmlContent, fileName, settings);
+            }
+            catch (Exception ex)
+            {
+                result = new XmlProcessingResult
+                {
+                    Success = false,
+                    HasErrors = true,
+                    Message = $"Unhandled exception: {ex.Message}"
+                };
+            }
 
             string targetFolder = result.Success
                 ? Path.Combine(settings.BrowseDb, "ProcessedFiles")
                 : Path.Combine(settings.BrowseDb, "DeniedFiles");
 
-            if (!Directory.Exists(targetFolder))
-                Directory.CreateDirectory(targetFolder);
+            Directory.CreateDirectory(targetFolder);
 
             string destinationPath = Path.Combine(targetFolder, Path.GetFileName(fileName));
 
@@ -30,7 +43,7 @@ namespace Mall_Linking_Alliance.Helpers
 
             if (!result.Success || result.HasErrors)
             {
-                WriteDeniedLog(destinationPath, result);
+                WriteDeniedLog(destinationPath, result);  // log next to moved file
                 Logger.Error($"❌ {result.Message}", "XmlProcessor");
                 return false;
             }
@@ -38,6 +51,7 @@ namespace Mall_Linking_Alliance.Helpers
             Logger.Info($"✅ Processed: {Path.GetFileName(fileName)}", "XmlProcessor");
             return true;
         }
+
         private static string SanitizeXmlEntities(string xml)
         {
             if (string.IsNullOrWhiteSpace(xml)) return xml;
@@ -84,99 +98,89 @@ namespace Mall_Linking_Alliance.Helpers
                 };
                 DatabaseHelper.InsertSettings(tblSettings, dbPath);
 
-                // 🔷 SALES + SALES LINE
-
                 var sales = doc.Root.Element("sales");
                 if (sales != null)
                 {
                     foreach (var trx in sales.Elements("trx"))
                     {
-                        var tblSales = new TblSales
+                        try
                         {
-                            ReceiptNo = trx.Element("receiptno")?.Value,
-                            Date = trx.Element("date")?.Value,
-                            Void = ParseInt(trx.Element("void")?.Value),
-                            Cash = ParseDecimal(trx.Element("cash")?.Value),
-                            Credit = ParseDecimal(trx.Element("credit")?.Value),
-                            Charge = ParseDecimal(trx.Element("charge")?.Value),
-                            GiftCheck = ParseDecimal(trx.Element("giftcheck")?.Value),
-                            OtherTender = ParseDecimal(trx.Element("othertender")?.Value),
-                            LineDisc = ParseDecimal(trx.Element("linedisc")?.Value),
-                            LineSenior = ParseDecimal(trx.Element("linesenior")?.Value),
-                            Evat = ParseDecimal(trx.Element("evat")?.Value),
-                            LinePwd = ParseDecimal(trx.Element("linepwd")?.Value),
-                            LineDiplomat = ParseDecimal(trx.Element("linediplomat")?.Value),
-                            Subtotal = ParseDecimal(trx.Element("subtotal")?.Value),
-                            Disc = ParseDecimal(trx.Element("disc")?.Value),
-                            Senior = ParseDecimal(trx.Element("senior")?.Value),
-                            Pwd = ParseDecimal(trx.Element("pwd")?.Value),
-                            Diplomat = ParseDecimal(trx.Element("diplomat")?.Value),
-                            Vat = ParseDecimal(trx.Element("vat")?.Value),
-                            ExVat = ParseDecimal(trx.Element("exvat")?.Value),
-                            IncVat = ParseDecimal(trx.Element("incvat")?.Value),
-                            LocalTax = ParseDecimal(trx.Element("localtax")?.Value),
-                            Amusement = ParseDecimal(trx.Element("amusement")?.Value),
-                            Ewt = ParseDecimal(trx.Element("ewt")?.Value),
-                            Service = ParseDecimal(trx.Element("service")?.Value),
-                            TaxSale = ParseDecimal(trx.Element("taxsale")?.Value),
-                            NoTaxSale = ParseDecimal(trx.Element("notaxsale")?.Value),
-                            TaxExSale = ParseDecimal(trx.Element("taxexsale")?.Value),
-                            TaxIncSale = ParseDecimal(trx.Element("taxincsale")?.Value),
-                            ZeroSale = ParseDecimal(trx.Element("zerosale")?.Value),
-                            VatExempt = ParseDecimal(trx.Element("vatexempt")?.Value),
-                            CustomerCount = ParseInt(trx.Element("customercount")?.Value),
-                            Gross = ParseDecimal(trx.Element("gross")?.Value),
-                            TaxRate = ParseDecimal(trx.Element("taxrate")?.Value),
-                            Posted = ParseInt(trx.Element("posted")?.Value),
-                            Memo = GetValueOrNA(trx.Element("memo")),
-                            Qty = ParseInt(trx.Element("qty")?.Value)
-                        };
-                        DatabaseHelper.InsertSales(tblSales, dbPath);
-
-                        var line = trx.Element("line");
-                        if (line != null)
-                        {
-                            var lineItems = ParseSalesLines(line, tblSales.ReceiptNo);
-                            foreach (var item in lineItems)
+                            var tblSales = new TblSales
                             {
-                                DatabaseHelper.InsertSalesLine(item, dbPath);
+                                ReceiptNo = trx.Element("receiptno")?.Value,
+                                Date = trx.Element("date")?.Value,
+                                Void = ParseInt(trx.Element("void")?.Value),
+                                Cash = ParseDecimal(trx.Element("cash")?.Value),
+                                Credit = ParseDecimal(trx.Element("credit")?.Value),
+                                Charge = ParseDecimal(trx.Element("charge")?.Value),
+                                GiftCheck = ParseDecimal(trx.Element("giftcheck")?.Value),
+                                OtherTender = ParseDecimal(trx.Element("othertender")?.Value),
+                                LineDisc = ParseDecimal(trx.Element("linedisc")?.Value),
+                                LineSenior = ParseDecimal(trx.Element("linesenior")?.Value),
+                                Evat = ParseDecimal(trx.Element("evat")?.Value),
+                                LinePwd = ParseDecimal(trx.Element("linepwd")?.Value),
+                                LineDiplomat = ParseDecimal(trx.Element("linediplomat")?.Value),
+                                Subtotal = ParseDecimal(trx.Element("subtotal")?.Value),
+                                Disc = ParseDecimal(trx.Element("disc")?.Value),
+                                Senior = ParseDecimal(trx.Element("senior")?.Value),
+                                Pwd = ParseDecimal(trx.Element("pwd")?.Value),
+                                Diplomat = ParseDecimal(trx.Element("diplomat")?.Value),
+                                Vat = ParseDecimal(trx.Element("vat")?.Value),
+                                ExVat = ParseDecimal(trx.Element("exvat")?.Value),
+                                IncVat = ParseDecimal(trx.Element("incvat")?.Value),
+                                LocalTax = ParseDecimal(trx.Element("localtax")?.Value),
+                                Amusement = ParseDecimal(trx.Element("amusement")?.Value),
+                                Ewt = ParseDecimal(trx.Element("ewt")?.Value),
+                                Service = ParseDecimal(trx.Element("service")?.Value),
+                                TaxSale = ParseDecimal(trx.Element("taxsale")?.Value),
+                                NoTaxSale = ParseDecimal(trx.Element("notaxsale")?.Value),
+                                TaxExSale = ParseDecimal(trx.Element("taxexsale")?.Value),
+                                TaxIncSale = ParseDecimal(trx.Element("taxincsale")?.Value),
+                                ZeroSale = ParseDecimal(trx.Element("zerosale")?.Value),
+                                VatExempt = ParseDecimal(trx.Element("vatexempt")?.Value),
+                                CustomerCount = ParseInt(trx.Element("customercount")?.Value),
+                                Gross = ParseDecimal(trx.Element("gross")?.Value),
+                                TaxRate = ParseDecimal(trx.Element("taxrate")?.Value),
+                                Posted = ParseInt(trx.Element("posted")?.Value),
+                                Memo = GetValueOrNA(trx.Element("memo")),
+                                Qty = ParseInt(trx.Element("qty")?.Value)
+                            };
+
+                            // 🔍 Skip if Receipt already exists
+                            if (DatabaseHelper.ReceiptExists(tblSales.ReceiptNo, dbPath))
+                            {
+                                throw new Exception($"Duplicate ReceiptNo already exists in database: {tblSales.ReceiptNo}");
                             }
+
+                            DatabaseHelper.InsertSales(tblSales, dbPath);
+
+                            var line = trx.Element("line");
+                            if (line != null)
+                            {
+                                var lineItems = ParseSalesLines(line, tblSales.ReceiptNo);
+                                foreach (var item in lineItems)
+                                {
+                                    DatabaseHelper.InsertSalesLine(item, dbPath);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.HasErrors = true;
+
+                            string shortFileName = Path.GetFileName(fileName);
+                            string trxId = trx.Element("receiptno")?.Value ?? "Unknown";
+
+                            string errorDetails = $"❌ Error in <trx> with ReceiptNo [{trxId}] in file [{shortFileName}]: {ex.Message}\n{ex.StackTrace}";
+                            Logger.Error(errorDetails, "Sales XML Processor", dbPath);
+
+                            // Optionally accumulate error messages:
+                            result.Message += $"{Environment.NewLine}- {errorDetails}";
                         }
                     }
                 }
 
                 // 🔷 MASTER
-                // 🔍 1. Duplicate check BEFORE insertion
-                var seenSkus = new HashSet<string>();
-                bool isDuplicate = false;
-                string duplicatedSku = null;
-
-                foreach (var master in doc.Descendants("master"))
-                {
-                    var prod = master.Element("product");
-                    var sku = prod.Element("sku")?.Value;
-
-                    if (!string.IsNullOrEmpty(sku))
-                    {
-                        if (!seenSkus.Add(sku))
-                        {
-                            isDuplicate = true;
-                            duplicatedSku = sku;
-                            break; // stop on first duplicate
-                        }
-                    }
-                }
-
-                // 🚫 2. Stop processing if duplicate found
-                if (isDuplicate)
-                {
-                    result.Success = false;
-                    result.HasErrors = true;
-                    result.Message = "Duplicate SKU found in <master>: " + duplicatedSku;
-                    return result;
-                }
-
-                // ✅ 3. Safe to process and insert now
                 foreach (var master in doc.Descendants("master"))
                 {
                     var prod = master.Element("product");
@@ -251,8 +255,17 @@ namespace Mall_Linking_Alliance.Helpers
                 }
 
 
-                result.Message = "Processed and saved to database successfully.";
-                result.Success = true;
+                if (result.HasErrors)
+                {
+                    result.Success = false;
+                    if (string.IsNullOrWhiteSpace(result.Message))
+                        result.Message = "One or more <trx> entries failed.";
+                }
+                else
+                {
+                    result.Message = "Processed and saved to database successfully.";
+                    result.Success = true;
+                }
                 return result;
             }
             catch (Exception ex)
@@ -262,8 +275,6 @@ namespace Mall_Linking_Alliance.Helpers
                 result.Message = $"Exception: {ex.Message}";
                 return result;
             }
-
-
         }
 
         private static List<TblSalesLine> ParseSalesLines(XElement line, string receiptNo)
@@ -312,17 +323,8 @@ namespace Mall_Linking_Alliance.Helpers
 
         private static void WriteDeniedLog(string xmlFilePath, XmlProcessingResult result)
         {
-
-            string deniedFolder = Path.Combine(Path.GetDirectoryName(xmlFilePath), "DeniedFiles");
-            Directory.CreateDirectory(deniedFolder);
-
             string fileName = Path.GetFileName(xmlFilePath);
-            string deniedFilePath = Path.Combine(deniedFolder, fileName);
-            string logPath = Path.ChangeExtension(deniedFilePath, ".txt");
-
-            // Move the duplicate XML to DeniedFiles folder
-            if (!File.Exists(deniedFilePath))
-                File.Move(xmlFilePath, deniedFilePath);
+            string logPath = Path.ChangeExtension(xmlFilePath, ".txt"); // Log goes beside moved XML
 
             // Write the .txt log with reason
             StringBuilder sb = new StringBuilder();
@@ -331,13 +333,10 @@ namespace Mall_Linking_Alliance.Helpers
             sb.AppendLine($"❌ Denied Reason:");
             sb.AppendLine($"  - {result.Message}");
 
-
             File.WriteAllText(logPath, sb.ToString());
 
-            // Optional: Log globally too
             Logger.Warn($"File denied: {fileName} - {result.Message}", "XML Processor");
         }
-
 
         private static int? ParseInt(string s)
         {

@@ -90,6 +90,7 @@ CREATE TABLE tblsales (
     posted          INTEGER DEFAULT 0,
     memo            TEXT,
     qty             INTEGER
+
 );
 CREATE INDEX IF NOT EXISTS idx_sales_date ON tblsales(date);
 ");
@@ -109,7 +110,7 @@ CREATE TABLE tblsalesline (
     tax             NUMERIC DEFAULT 0,
     memo            TEXT,
     total           NUMERIC DEFAULT 0,
-    PRIMARY KEY (receiptno, sku),
+
     FOREIGN KEY (receiptno) REFERENCES tblsales (receiptno)
 );
 CREATE INDEX IF NOT EXISTS idx_salesline_sku ON tblsalesline(sku);
@@ -118,12 +119,11 @@ CREATE INDEX IF NOT EXISTS idx_salesline_sku ON tblsalesline(sku);
                     // tblmaster
                     CreateIfMissing("tblmaster", @"
 CREATE TABLE tblmaster (
-    sku             TEXT PRIMARY KEY,
+    sku             TEXT,
     name            TEXT,
     inventory       INTEGER,
     price           NUMERIC DEFAULT 0,
-    category        TEXT,
-    FOREIGN KEY (sku) REFERENCES tblsalesline (sku)
+    category        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_master_sku ON tblmaster(sku);
 ");

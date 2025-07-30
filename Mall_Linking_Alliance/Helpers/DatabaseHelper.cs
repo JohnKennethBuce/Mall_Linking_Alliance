@@ -11,6 +11,30 @@ namespace Mall_Linking_Alliance.Helpers
             return $"Data Source={dbPath};Version=3;";
         }
 
+        public static bool ReceiptExists(string receiptNo, string dbPath)
+        {
+            try
+            {
+                using (var conn = new SQLiteConnection($"Data Source={dbPath};Version=3;"))
+                {
+                    conn.Open();
+                    string sql = "SELECT COUNT(*) FROM tblsales WHERE receiptno = @receiptno";
+
+                    using (var cmd = new SQLiteCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@receiptno", receiptNo);
+                        var count = Convert.ToInt32(cmd.ExecuteScalar());
+                        return count > 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ ReceiptExists failed: {ex.Message}");
+                return false;
+            }
+        }
+
         public static void InsertLog(TblLog log, string dbPath)
         {
             try
@@ -195,7 +219,7 @@ namespace Mall_Linking_Alliance.Helpers
                     conn.Open();
 
                     string sql = @"
-                        INSERT OR IGNORE INTO tblmaster (sku, name, inventory, price, category) 
+                        INSERT INTO tblmaster (sku, name, inventory, price, category) 
                         VALUES (@sku, @name, @inventory, @price, @category);";
 
                     using (var cmd = new SQLiteCommand(sql, conn))
