@@ -5,13 +5,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Mall_Linking_Alliance.Helpers;
 using Mall_Linking_Alliance.Model;
+using Mall_Linking_Alliance.Properties;
+
 
 namespace Mall_Linking_Alliance.Watchers
 {
     public class XmlProcessingWatcher
     {
-        private readonly string _watchPath;
-        private readonly TblSettings _settings;
+        private string _watchPath;
+        private TblSettings _settings;
         private FileSystemWatcher _watcher;
 
         private readonly ConcurrentQueue<string> _fileQueue = new ConcurrentQueue<string>();
@@ -19,8 +21,13 @@ namespace Mall_Linking_Alliance.Watchers
 
         public XmlProcessingWatcher(string watchPath, TblSettings settings)
         {
-            _watchPath = watchPath ?? throw new ArgumentNullException(nameof(watchPath));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+
+            // ✅ Validate settings and fix paths if needed
+            SettingsValidator.ValidateAndFixSettings(settings);
+
+            // Always use updated, validated path
+            _watchPath = _settings.BrowseDb ?? throw new ArgumentNullException(nameof(_settings.BrowseDb));
         }
 
         public void Start()
@@ -66,7 +73,7 @@ namespace Mall_Linking_Alliance.Watchers
 
                         string xml = await SafeReadFileAsync(filePath);
 
-                        XmlProcessor.Process(xml, filePath, _settings);
+                        XmlProcessor.Process(xml, filePath, _settings); // still uses _settings.SaveDb
                     }
                     catch (Exception ex)
                     {

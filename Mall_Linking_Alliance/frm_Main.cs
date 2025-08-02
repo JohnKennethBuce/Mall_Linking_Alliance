@@ -24,7 +24,8 @@ namespace Mall_Linking_Alliance
             InitializeComponent();
             InitializeProgram();
 
-            _xmlProcessingWatcher = new XmlProcessingWatcher(XmlDirectory, Settings);
+            // Start watcher using validated paths
+            _xmlProcessingWatcher = new XmlProcessingWatcher(Settings.BrowseDb, Settings);
             _xmlProcessingWatcher.Start();
         }
 
@@ -36,17 +37,17 @@ namespace Mall_Linking_Alliance
             // 🔷 Load DB settings
             Settings = SettingsManager.LoadSettings();
 
+            // 🔷 Validate paths and ensure folder structure
+            Settings = SettingsValidator.ValidateAndFixSettings(Settings);
+
+            // 🔷 Save updated settings if any defaults were applied
+            SettingsManager.SaveSettings(Settings);
+
+            // 🔷 Set global XML Directory
             XmlDirectory = Settings.BrowseDb;
 
-            if (string.IsNullOrWhiteSpace(Settings.SaveDb))
-            {
-                Settings.SaveDb = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Alliance_DB.db");
-                SettingsManager.SaveSettings(Settings); // save this fallback path
-            }
-
-            // Ensure database structure exists now that path is guaranteed
+            // 🔷 Ensure DB structure exists for SaveDb path
             DatabaseInitializer.EnsureDatabaseStructure(Settings.SaveDb);
-
 
             // If invalid, default to Desktop and save it
             if (string.IsNullOrWhiteSpace(XmlDirectory) || !Directory.Exists(XmlDirectory))

@@ -82,6 +82,7 @@
     <Compile Include="Helpers\DatabaseInitializer.cs" />
     <Compile Include="Helpers\Logger.cs" />
     <Compile Include="Helpers\SettingsManager.cs" />
+    <Compile Include="Helpers\SettingsValidator.cs" />
     <Compile Include="Helpers\XmlProcessingResult.cs" />
     <Compile Include="Helpers\XmlProcessingWatcher.cs" />
     <Compile Include="Helpers\XmlProcessor.cs" />
