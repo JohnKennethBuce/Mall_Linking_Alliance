@@ -141,9 +141,9 @@ CREATE TABLE tblsettings (
 ");
 
                     // tbleod
-                    CreateIfMissing("tbleod", @"
+                   CreateIfMissing("tbleod", @"
 CREATE TABLE tbleod (
-    date                TEXT,
+    date                TEXT PRIMARY KEY,
     zcounter            INTEGER DEFAULT 0,
     previousnrgt        NUMERIC DEFAULT 0,
     nrgt                NUMERIC DEFAULT 0,
@@ -190,8 +190,7 @@ CREATE TABLE tbleod (
     giftcheck           NUMERIC DEFAULT 0,
     giftcheckcnt        INTEGER DEFAULT 0,
     othertender         NUMERIC DEFAULT 0,
-    othertendercnt      INTEGER DEFAULT 0,
-    FOREIGN KEY (date) REFERENCES tblsales (date)
+    othertendercnt      INTEGER DEFAULT 0
 );
 ");
 

@@ -13,14 +13,14 @@ namespace Mall_Linking_Alliance.Helpers
 
             if (string.IsNullOrWhiteSpace(settings.BrowseDb) || !Directory.Exists(settings.BrowseDb))
             {
-                string defaultBrowsePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML");
+                string defaultBrowsePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XmlWatcher");
                 Directory.CreateDirectory(defaultBrowsePath);
                 settings.BrowseDb = defaultBrowsePath;
             }
 
             if (string.IsNullOrWhiteSpace(settings.SaveDb) || !File.Exists(settings.SaveDb))
             {
-                string defaultSavePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TempDB.db");
+                string defaultSavePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Alliance_DB.db");
                 settings.SaveDb = defaultSavePath;
             }
 

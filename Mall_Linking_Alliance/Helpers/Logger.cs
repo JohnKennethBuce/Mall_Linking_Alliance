@@ -24,6 +24,7 @@ namespace Mall_Linking_Alliance.Helpers
             WriteLog("WARN", message, source, dbPath);
         }
 
+
         /// <summary>
         /// Log an error message.
         /// </summary>

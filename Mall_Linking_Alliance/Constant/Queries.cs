@@ -8,5 +8,6 @@ namespace Mall_Linking_Alliance.Constant
 {
     internal class Queries
     {
+
     }
 }

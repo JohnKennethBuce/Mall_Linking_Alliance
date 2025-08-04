@@ -194,67 +194,6 @@ namespace Mall_Linking_Alliance.Helpers
                     };
                     DatabaseHelper.InsertMaster(tblMaster, dbPath);
                 }
-
-                // 🔷 EOD
-                var eod = doc.Root.Element("eod");
-                if (eod != null)
-                {
-                    var tblEod = new TblEod
-                    {
-                        Date = eod.Element("date")?.Value,
-                        ZCounter = ParseInt(eod.Element("zcounter")?.Value),
-                        PreviousNrgt = ParseDecimal(eod.Element("previousnrgt")?.Value),
-                        Nrgt = ParseDecimal(eod.Element("nrgt")?.Value),
-                        PreviousTax = ParseDecimal(eod.Element("previoustax")?.Value),
-                        NewTax = ParseDecimal(eod.Element("newtax")?.Value),
-                        PreviousTaxSale = ParseDecimal(eod.Element("previoustaxsale")?.Value),
-                        NewTaxSale = ParseDecimal(eod.Element("newtaxsale")?.Value),
-                        PreviousNoTaxSale = ParseDecimal(eod.Element("previousnotaxsale")?.Value),
-                        NewNoTaxSale = ParseDecimal(eod.Element("newnotaxsale")?.Value),
-                        OpenTime = ParseInt(eod.Element("opentime")?.Value) ?? 0,
-                        CloseTime = ParseInt(eod.Element("closetime")?.Value) ?? 0,
-                        Gross = ParseDecimal(eod.Element("gross")?.Value),
-                        Vat = ParseDecimal(eod.Element("vat")?.Value),
-                        LocalTax = ParseDecimal(eod.Element("localtax")?.Value),
-                        Amusement = ParseDecimal(eod.Element("amusement")?.Value),
-                        Ewt = ParseDecimal(eod.Element("ewt")?.Value),
-                        TaxSale = ParseDecimal(eod.Element("taxsale")?.Value),
-                        NoTaxSale = ParseDecimal(eod.Element("notaxsale")?.Value),
-                        ZeroSale = ParseDecimal(eod.Element("zerosale")?.Value),
-                        VatExempt = ParseDecimal(eod.Element("vatexempt")?.Value),
-                        Void = ParseDecimal(eod.Element("void")?.Value),
-                        VoidCnt = ParseInt(eod.Element("voidcnt")?.Value),
-                        Disc = ParseDecimal(eod.Element("disc")?.Value),
-                        DiscCnt = ParseInt(eod.Element("disccnt")?.Value),
-                        Refund = ParseDecimal(eod.Element("refund")?.Value),
-                        RefundCnt = ParseInt(eod.Element("refundcnt")?.Value),
-                        Senior = ParseDecimal(eod.Element("senior")?.Value),
-                        SeniorCnt = ParseInt(eod.Element("seniorcnt")?.Value),
-                        Pwd = ParseDecimal(eod.Element("pwd")?.Value),
-                        PwdCnt = ParseInt(eod.Element("pwdcnt")?.Value),
-                        Diplomat = ParseDecimal(eod.Element("diplomat")?.Value),
-                        DiplomatCnt = ParseInt(eod.Element("diplomatcnt")?.Value),
-                        Service = ParseDecimal(eod.Element("service")?.Value),
-                        ServiceCnt = ParseInt(eod.Element("servicecnt")?.Value),
-                        ReceiptStart = eod.Element("receiptstart")?.Value,
-                        ReceiptEnd = eod.Element("receiptend")?.Value,
-                        TrxCnt = ParseInt(eod.Element("trxcnt")?.Value),
-                        Cash = ParseDecimal(eod.Element("cash")?.Value),
-                        CashCnt = ParseInt(eod.Element("cashcnt")?.Value),
-                        Credit = ParseDecimal(eod.Element("credit")?.Value),
-                        CreditCnt = ParseInt(eod.Element("creditcnt")?.Value),
-                        Charge = ParseDecimal(eod.Element("charge")?.Value),
-                        ChargeCnt = ParseInt(eod.Element("chargecnt")?.Value),
-                        GiftCheck = ParseDecimal(eod.Element("giftcheck")?.Value),
-                        GiftCheckCnt = ParseInt(eod.Element("giftcheckcnt")?.Value),
-                        OtherTender = ParseDecimal(eod.Element("othertender")?.Value),
-                        OtherTenderCnt = ParseInt(eod.Element("othertendercnt")?.Value)
-                    };
-
-                    DatabaseHelper.InsertEod(tblEod, dbPath); // You’ll implement this next
-                }
-
-
                 if (result.HasErrors)
                 {
                     result.Success = false;
