@@ -87,7 +87,7 @@ CREATE TABLE tblsales (
     customercount   INTEGER DEFAULT 0,
     gross           NUMERIC DEFAULT 0,
     taxrate         NUMERIC DEFAULT 0,
-    posted          INTEGER DEFAULT 0,
+    posted          LONG,
     memo            TEXT,
     qty             INTEGER
 

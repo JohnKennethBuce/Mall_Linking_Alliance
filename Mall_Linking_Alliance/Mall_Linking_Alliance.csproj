@@ -86,6 +86,9 @@
     <Compile Include="Helpers\XmlProcessingResult.cs" />
     <Compile Include="Helpers\XmlProcessingWatcher.cs" />
     <Compile Include="Helpers\XmlProcessor.cs" />
+    <Compile Include="Model\ColType.cs" />
+    <Compile Include="Model\DbColumnAttribute.cs" />
+    <Compile Include="Model\DbTableAttribute.cs" />
     <Compile Include="Model\TblEod.cs" />
     <Compile Include="Model\TblLog.cs" />
     <Compile Include="Model\TblMaster.cs" />

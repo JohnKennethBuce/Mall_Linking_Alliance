@@ -10,6 +10,47 @@ namespace Mall_Linking_Alliance.Helpers
 {
     public static class XmlProcessor
     {
+        //Parsing Formats
+        private static string FormatDate(string raw)
+        {
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                raw = raw.Trim();
+                Console.WriteLine($"[FormatDate] Trying to parse: '{raw}'");
+
+                if (DateTime.TryParseExact(raw, "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out var dt))
+                {
+                    Console.WriteLine($"[FormatDate] Parsed OK: {dt:yyyy-MM-dd}");
+                    return dt.ToString("yyyy-MM-dd");
+                }
+
+                Console.WriteLine($"⚠️ [FormatDate] Failed to parse: '{raw}'");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ [FormatDate] Input was null or whitespace.");
+            }
+
+            return string.Empty;
+        }
+
+
+        private static int ParseInt(string s)
+        {
+            return int.TryParse(s, out var val) ? val : 0;
+        }
+
+        public static long ParseLong(string value)
+        {
+            long.TryParse(value, out var result);
+            return result;
+        }
+
+        private static decimal ParseDecimal(string s)
+        {
+            return decimal.TryParse(s, out var val) ? val : 0m;
+        }
+
         public static bool Process(string xmlContent, string fileName, TblSettings settings)
         {
             XmlProcessingResult result = null;
@@ -63,10 +104,6 @@ namespace Mall_Linking_Alliance.Helpers
                 "&amp;"
             );
         }
-        private static string GetValueOrNA(XElement element)
-        {
-            return string.IsNullOrWhiteSpace(element?.Value) ? "NA" : element.Value;
-        }
         private static XmlProcessingResult ProcessXml(string xmlContent, string fileName, TblSettings settings)
         {
             var result = new XmlProcessingResult();
@@ -74,7 +111,7 @@ namespace Mall_Linking_Alliance.Helpers
             try
             {
                 var sanitizedXml = SanitizeXmlEntities(xmlContent);
-                var doc = XDocument.Parse(xmlContent);
+                var doc = XDocument.Parse(sanitizedXml); // <- use sanitized content
 
                 string dbPath = settings.SaveDb;
                 if (string.IsNullOrWhiteSpace(dbPath) || !File.Exists(dbPath))
@@ -85,7 +122,7 @@ namespace Mall_Linking_Alliance.Helpers
                     return result;
                 }
 
-                // 🔷 ID
+                // 🔷 ID / SETTINGS
                 var id = doc.Root.Element("id");
                 var tblSettings = new TblSettings
                 {
@@ -98,6 +135,23 @@ namespace Mall_Linking_Alliance.Helpers
                 };
                 DatabaseHelper.InsertSettings(tblSettings, dbPath);
 
+                foreach (var master in doc.Descendants("master"))
+                {
+                    foreach (var prod in master.Elements("product"))
+                    {
+                        var tblMaster = new TblMaster
+                        {
+                            Sku = prod.Element("sku")?.Value,
+                            Name = prod.Element("name")?.Value,
+                            Inventory = ParseInt(prod.Element("inventory")?.Value),
+                            Price = ParseDecimal(prod.Element("price")?.Value),
+                            Category = prod.Element("category")?.Value
+                        };
+                        DatabaseHelper.InsertMaster(tblMaster, dbPath);
+                    }
+                }
+
+                // 🔷 SALES
                 var sales = doc.Root.Element("sales");
                 if (sales != null)
                 {
@@ -105,10 +159,26 @@ namespace Mall_Linking_Alliance.Helpers
                     {
                         try
                         {
+                            // Validate and extract ReceiptNo
+                            string receiptNo = trx.Element("receiptno")?.Value?.Trim();
+                            if (string.IsNullOrWhiteSpace(receiptNo))
+                                throw new Exception("Missing or empty <receiptno> in <trx> block.");
+
+                            if (DatabaseHelper.ReceiptExists(receiptNo, dbPath))
+                                throw new Exception($"Duplicate ReceiptNo already exists in database: {receiptNo}");
+
+                            // Extract and format date from parent <sales> tag
+                            string rawDate = sales.Element("date")?.Value;
+                            Console.WriteLine($"[DEBUG] Raw Date from <sales>: '{rawDate}'");
+
+                            string formattedDate = FormatDate(rawDate);
+                            Console.WriteLine($"[DEBUG] Formatted Date: '{formattedDate}'");
+
+                            // Create TblSales object
                             var tblSales = new TblSales
                             {
-                                ReceiptNo = trx.Element("receiptno")?.Value,
-                                Date = trx.Element("date")?.Value,
+                                ReceiptNo = receiptNo,
+                                Date = formattedDate,
                                 Void = ParseInt(trx.Element("void")?.Value),
                                 Cash = ParseDecimal(trx.Element("cash")?.Value),
                                 Credit = ParseDecimal(trx.Element("credit")?.Value),
@@ -141,27 +211,37 @@ namespace Mall_Linking_Alliance.Helpers
                                 CustomerCount = ParseInt(trx.Element("customercount")?.Value),
                                 Gross = ParseDecimal(trx.Element("gross")?.Value),
                                 TaxRate = ParseDecimal(trx.Element("taxrate")?.Value),
-                                Posted = ParseInt(trx.Element("posted")?.Value),
-                                Memo = GetValueOrNA(trx.Element("memo")),
+                                Posted = ParseLong(trx.Element("posted")?.Value),
+                                Memo = trx.Element("memo")?.Value?.Trim() ?? "N/A",
                                 Qty = ParseInt(trx.Element("qty")?.Value)
                             };
 
-                            // 🔍 Skip if Receipt already exists
-                            if (DatabaseHelper.ReceiptExists(tblSales.ReceiptNo, dbPath))
-                            {
-                                throw new Exception($"Duplicate ReceiptNo already exists in database: {tblSales.ReceiptNo}");
-                            }
-
+                            // Insert into database
                             DatabaseHelper.InsertSales(tblSales, dbPath);
 
-                            var line = trx.Element("line");
-                            if (line != null)
+                // 🔷 SALES LINE
+                var lines = trx.Elements("line");
+                            foreach (var line in lines)
                             {
-                                var lineItems = ParseSalesLines(line, tblSales.ReceiptNo);
-                                foreach (var item in lineItems)
+                                var item = new TblSalesLine
                                 {
-                                    DatabaseHelper.InsertSalesLine(item, dbPath);
-                                }
+                                    ReceiptNo = receiptNo,
+                                    Sku = line.Element("sku")?.Value,
+                                    Qty = ParseDecimal(line.Element("qty")?.Value),
+                                    UnitPrice = ParseDecimal(line.Element("unitprice")?.Value),
+                                    Disc = ParseDecimal(line.Element("disc")?.Value),
+                                    Senior = ParseDecimal(line.Element("senior")?.Value),
+                                    Pwd = ParseDecimal(line.Element("pwd")?.Value),
+                                    Diplomat = ParseDecimal(line.Element("diplomat")?.Value),
+                                    TaxType = ParseDecimal(line.Element("taxtype")?.Value),
+                                    Tax = ParseDecimal(line.Element("tax")?.Value),
+                                    Memo = line.Element("memo")?.Value,
+                                    Total = ParseDecimal(line.Element("total")?.Value)
+                                };
+
+                                DatabaseHelper.InsertSalesLine(item, dbPath);
+
+                                Console.WriteLine($"[SalesLine] Added line SKU={item.Sku}, Qty={item.Qty}, Total={item.Total}");
                             }
                         }
                         catch (Exception ex)
@@ -174,37 +254,14 @@ namespace Mall_Linking_Alliance.Helpers
                             string errorDetails = $"❌ Error in <trx> with ReceiptNo [{trxId}] in file [{shortFileName}]: {ex.Message}\n{ex.StackTrace}";
                             Logger.Error(errorDetails, "Sales XML Processor", dbPath);
 
-                            // Optionally accumulate error messages:
                             result.Message += $"{Environment.NewLine}- {errorDetails}";
                         }
                     }
                 }
 
-                // 🔷 MASTER
-                foreach (var master in doc.Descendants("master"))
-                {
-                    var prod = master.Element("product");
-                    var tblMaster = new TblMaster
-                    {
-                        Sku = prod.Element("sku")?.Value,
-                        Name = prod.Element("name")?.Value,
-                        Inventory = ParseInt(prod.Element("inventory")?.Value),
-                        Price = ParseDecimal(prod.Element("price")?.Value),
-                        Category = prod.Element("category")?.Value
-                    };
-                    DatabaseHelper.InsertMaster(tblMaster, dbPath);
-                }
-                if (result.HasErrors)
-                {
-                    result.Success = false;
-                    if (string.IsNullOrWhiteSpace(result.Message))
-                        result.Message = "One or more <trx> entries failed.";
-                }
-                else
-                {
-                    result.Message = "Processed and saved to database successfully.";
-                    result.Success = true;
-                }
+                // 🔚 Final result
+                result.Success = !result.HasErrors;
+                result.Message = result.HasErrors ? "One or more <trx> entries failed." : "Processed and saved to database successfully.";
                 return result;
             }
             catch (Exception ex)
@@ -214,49 +271,6 @@ namespace Mall_Linking_Alliance.Helpers
                 result.Message = $"Exception: {ex.Message}";
                 return result;
             }
-        }
-
-        private static List<TblSalesLine> ParseSalesLines(XElement line, string receiptNo)
-        {
-            var children = line.Elements().ToList();
-            var result = new List<TblSalesLine>();
-
-            const int FieldsPerItem = 11;
-
-            if (children.Count % FieldsPerItem != 0)
-            {
-                Logger.Error($"Invalid number of <salesline> child elements: Expected multiples of {FieldsPerItem}, but got {children.Count}.");
-                return result;
-            }
-
-            for (int i = 0; i < children.Count; i += FieldsPerItem)
-            {
-                try
-                {
-                    var item = new TblSalesLine
-                    {
-                        ReceiptNo = receiptNo,
-                        Sku = children[i]?.Value,
-                        Qty = ParseDecimal(children[i + 1]?.Value),
-                        UnitPrice = ParseDecimal(children[i + 2]?.Value),
-                        Disc = ParseDecimal(children[i + 3]?.Value),
-                        Senior = ParseDecimal(children[i + 4]?.Value),
-                        Pwd = ParseDecimal(children[i + 5]?.Value),
-                        Diplomat = ParseDecimal(children[i + 6]?.Value),
-                        TaxType = ParseDecimal(children[i + 7]?.Value),
-                        Tax = ParseDecimal(children[i + 8]?.Value),
-                        Memo = children[i + 9]?.Value,
-                        Total = ParseDecimal(children[i + 10]?.Value)
-                    };
-                    result.Add(item);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Error parsing salesline block at index {i}: {ex.Message}");
-                }
-            }
-
-            return result;
         }
 
 
@@ -275,20 +289,6 @@ namespace Mall_Linking_Alliance.Helpers
             File.WriteAllText(logPath, sb.ToString());
 
             Logger.Warn($"File denied: {fileName} - {result.Message}", "XML Processor");
-        }
-
-        private static int? ParseInt(string s)
-        {
-            if (int.TryParse(s, out var val))
-                return val;
-            return null;
-        }
-
-        private static decimal? ParseDecimal(string s)
-        {
-            if (decimal.TryParse(s, out var val))
-                return val;
-            return null;
         }
     }
 }
