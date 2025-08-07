@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 
-
 namespace Mall_Linking_Alliance.Helpers
 {
     public static class EodXmlProcessor
@@ -16,6 +15,7 @@ namespace Mall_Linking_Alliance.Helpers
             string status = match ? "✅" : "❌";
             return $"   - {label}: checker={checkerVal}, eod={eodVal} {status}";
         }
+
         public static string ProcessDeniedEodFiles(string deniedFolderPath, string dbPath)
         {
             if (!Directory.Exists(deniedFolderPath))
@@ -27,6 +27,7 @@ namespace Mall_Linking_Alliance.Helpers
             var xmlFiles = Directory.GetFiles(deniedFolderPath, "*.xml");
             int insertedCount = 0;
             int skippedCount = 0;
+            int totalVoidedSkipped = 0;
             StringBuilder logBuilder = new StringBuilder();
 
             foreach (var filePath in xmlFiles)
@@ -50,6 +51,10 @@ namespace Mall_Linking_Alliance.Helpers
                         continue;
                     }
 
+                    // Count voided transactions before inserting
+                    int voidedCount = trxList.Count(trx => trx.Element("void")?.Value == "1");
+                    totalVoidedSkipped += voidedCount;
+
                     // Generate TblEod object from <sales>
                     var eod = EodGenerator.GenerateFromXml(xmlContent);
 
@@ -72,9 +77,10 @@ namespace Mall_Linking_Alliance.Helpers
                     DatabaseHelper.InsertEod(eod, dbPath);
                     insertedCount++;
                     logBuilder.AppendLine($"✅ Inserted EOD: {Path.GetFileName(filePath)}");
-                    if (result.VoidedSkippedCount > 0)
+
+                    if (voidedCount > 0)
                     {
-                        logBuilder.AppendLine($"⏩ Voided transactions skipped: {result.VoidedSkippedCount}");
+                        logBuilder.AppendLine($"⏩ Voided transactions skipped: {voidedCount}");
                     }
                 }
                 catch (Exception ex)
@@ -83,6 +89,7 @@ namespace Mall_Linking_Alliance.Helpers
                     skippedCount++;
                 }
             }
+
             // 📌 Populate tblchecker from tbleod + tblsales
             DatabaseHelper.PopulateCheckerFromEodAndSales(dbPath);
 
@@ -100,13 +107,12 @@ namespace Mall_Linking_Alliance.Helpers
                 {
                     string date = row["date"].ToString();
                     logBuilder.AppendLine($"📅 Date: {date}");
-
                     logBuilder.AppendLine(CompareField("pwdcnt", row["checker_pwdcnt"], row["eod_pwdcnt"]));
-                    logBuilder.AppendLine(CompareField("trxcnt", row["checker_trxcnt"], row["eod_trxcnt"])); // ✅ Added trx count
+                    logBuilder.AppendLine(CompareField("trxcnt", row["checker_trxcnt"], row["eod_trxcnt"]));
                     logBuilder.AppendLine(CompareField("cash", row["checker_cash"], row["eod_cash"]));
                     logBuilder.AppendLine(CompareField("receiptstart", row["checker_receiptstart"], row["eod_receiptstart"]));
                     logBuilder.AppendLine(CompareField("receiptend", row["checker_receiptend"], row["eod_receiptend"]));
-                    logBuilder.AppendLine(); // Add spacing between mismatch groups
+                    logBuilder.AppendLine();
                 }
             }
             else
@@ -117,6 +123,9 @@ namespace Mall_Linking_Alliance.Helpers
             // 📌 Summary log
             logBuilder.AppendLine("\n📋 EOD Processing Summary:");
             logBuilder.AppendLine($"Inserted={insertedCount}, Skipped={skippedCount}, Total={xmlFiles.Length}");
+
+            if (totalVoidedSkipped > 0)
+                logBuilder.AppendLine($"⏩ Total voided transactions skipped: {totalVoidedSkipped}");
 
             // 📌 Write to .txt
             string summaryLogPath = Path.Combine(deniedFolderPath, $"EOD_Summary_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
