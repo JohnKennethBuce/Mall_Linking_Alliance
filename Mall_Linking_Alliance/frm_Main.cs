@@ -100,5 +100,33 @@ namespace Mall_Linking_Alliance
 
             Logger.Info("🔄 Settings reloaded.", "frm_Main");
         }
+
+        private void processEODToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Logger.Info("🧾 Manual EOD processing started...");
+
+                // Use the DeniedFiles directory and SaveDb path from Settings
+                string deniedPath = Path.Combine(Settings.BrowseDb, "DeniedFiles");
+
+                // Run EOD processing and get the summary path
+                string summaryPath = EodXmlProcessor.ProcessDeniedEodFiles(deniedPath, Settings.SaveDb);
+
+                Logger.Info("✅ Manual EOD processing completed.");
+                MessageBox.Show("EOD processing completed successfully.", "Process EOD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                // ✅ Optional: Open the generated summary file after processing
+                if (File.Exists(summaryPath))
+                {
+                    System.Diagnostics.Process.Start("notepad.exe", summaryPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"❌ EOD processing failed: {ex.Message}", "frm_Main");
+                MessageBox.Show($"EOD processing failed:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
     }
 }

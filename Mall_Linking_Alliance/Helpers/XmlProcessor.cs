@@ -21,7 +21,7 @@ namespace Mall_Linking_Alliance.Helpers
                 if (DateTime.TryParseExact(raw, "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out var dt))
                 {
                     Console.WriteLine($"[FormatDate] Parsed OK: {dt:yyyy-MM-dd}");
-                    return dt.ToString("yyyy-MM-dd");
+                    return dt.ToString("yyyyMMdd");
                 }
 
                 Console.WriteLine($"⚠️ [FormatDate] Failed to parse: '{raw}'");
@@ -51,13 +51,13 @@ namespace Mall_Linking_Alliance.Helpers
             return decimal.TryParse(s, out var val) ? val : 0m;
         }
 
-        public static bool Process(string xmlContent, string fileName, TblSettings settings)
+        public static bool Process(string xmlContent, string filePath, TblSettings settings)
         {
-            XmlProcessingResult result = null;
+            XmlProcessingResult result;
 
             try
             {
-                result = ProcessXml(xmlContent, fileName, settings);
+                result = ProcessXml(xmlContent, filePath, settings);
             }
             catch (Exception ex)
             {
@@ -75,21 +75,21 @@ namespace Mall_Linking_Alliance.Helpers
 
             Directory.CreateDirectory(targetFolder);
 
-            string destinationPath = Path.Combine(targetFolder, Path.GetFileName(fileName));
+            string destinationPath = Path.Combine(targetFolder, Path.GetFileName(filePath));
 
             if (File.Exists(destinationPath))
                 File.Delete(destinationPath);
 
-            File.Move(fileName, destinationPath);
+            File.Move(filePath, destinationPath);
 
             if (!result.Success || result.HasErrors)
             {
-                WriteDeniedLog(destinationPath, result);  // log next to moved file
+                WriteDeniedLog(destinationPath, result);  // Optional: log next to moved file
                 Logger.Error($"❌ {result.Message}", "XmlProcessor");
                 return false;
             }
 
-            Logger.Info($"✅ Processed: {Path.GetFileName(fileName)}", "XmlProcessor");
+            Logger.Info($"✅ Processed: {Path.GetFileName(filePath)}", "XmlProcessor");
             return true;
         }
 
@@ -135,44 +135,53 @@ namespace Mall_Linking_Alliance.Helpers
                 };
                 DatabaseHelper.InsertSettings(tblSettings, dbPath);
 
-                foreach (var master in doc.Descendants("master"))
-                {
-                    foreach (var prod in master.Elements("product"))
-                    {
-                        var tblMaster = new TblMaster
-                        {
-                            Sku = prod.Element("sku")?.Value,
-                            Name = prod.Element("name")?.Value,
-                            Inventory = ParseInt(prod.Element("inventory")?.Value),
-                            Price = ParseDecimal(prod.Element("price")?.Value),
-                            Category = prod.Element("category")?.Value
-                        };
-                        DatabaseHelper.InsertMaster(tblMaster, dbPath);
-                    }
-                }
+                
 
                 // 🔷 SALES
                 var sales = doc.Root.Element("sales");
                 if (sales != null)
                 {
-                    foreach (var trx in sales.Elements("trx"))
+                    var trxList = sales.Elements("trx").ToList();
+
+                    if (trxList.Count > 1)
+                    {
+                        Logger.Warn($"❌ Denied: Multiple <trx> blocks found in {fileName} — EOD detected in sales section.");
+
+                        return new XmlProcessingResult
+                        {
+                            Success = false,
+                            HasErrors = true,
+                            Message = "Multiple <trx> blocks found — EOD detected in sales section."
+                        };
+                    }
+
+                    foreach (var trx in trxList)
                     {
                         try
                         {
-                            // Validate and extract ReceiptNo
+                            // ✅ Validate and extract ReceiptNo
                             string receiptNo = trx.Element("receiptno")?.Value?.Trim();
                             if (string.IsNullOrWhiteSpace(receiptNo))
                                 throw new Exception("Missing or empty <receiptno> in <trx> block.");
 
-                            if (DatabaseHelper.ReceiptExists(receiptNo, dbPath))
-                                throw new Exception($"Duplicate ReceiptNo already exists in database: {receiptNo}");
+                            // ✅ Skip voided transactions
+                            int voidFlag = ParseInt(trx.Element("void")?.Value);
+                            if (voidFlag == 1)
+                            {
+                                Logger.Warn($"⏩ Skipped voided transaction: {receiptNo}");
+                                continue; // Skip this transaction
+                            }
 
-                            // Extract and format date from parent <sales> tag
+                            if (DatabaseHelper.ReceiptExists(receiptNo, dbPath))
+                                throw new Exception($"Duplicate receipt no detected: {receiptNo}");
+
+                            // ✅ Extract and format date from parent <sales> tag
                             string rawDate = sales.Element("date")?.Value;
                             Console.WriteLine($"[DEBUG] Raw Date from <sales>: '{rawDate}'");
 
                             string formattedDate = FormatDate(rawDate);
                             Console.WriteLine($"[DEBUG] Formatted Date: '{formattedDate}'");
+
 
                             // Create TblSales object
                             var tblSales = new TblSales
@@ -216,11 +225,12 @@ namespace Mall_Linking_Alliance.Helpers
                                 Qty = ParseInt(trx.Element("qty")?.Value)
                             };
 
-                            // Insert into database
+                            // ✅ Insert Sales header once
                             DatabaseHelper.InsertSales(tblSales, dbPath);
 
-                // 🔷 SALES LINE
-                var lines = trx.Elements("line");
+
+                            // 🔷 SALES LINE
+                            var lines = trx.Elements("line");
                             foreach (var line in lines)
                             {
                                 var item = new TblSalesLine
@@ -244,6 +254,7 @@ namespace Mall_Linking_Alliance.Helpers
                                 Console.WriteLine($"[SalesLine] Added line SKU={item.Sku}, Qty={item.Qty}, Total={item.Total}");
                             }
                         }
+
                         catch (Exception ex)
                         {
                             result.HasErrors = true;
@@ -255,13 +266,31 @@ namespace Mall_Linking_Alliance.Helpers
                             Logger.Error(errorDetails, "Sales XML Processor", dbPath);
 
                             result.Message += $"{Environment.NewLine}- {errorDetails}";
+
                         }
                     }
                 }
 
-                // 🔚 Final result
-                result.Success = !result.HasErrors;
-                result.Message = result.HasErrors ? "One or more <trx> entries failed." : "Processed and saved to database successfully.";
+                // ✅ Insert <master> block ONLY if everything succeeded
+                if (!result.HasErrors)
+                {
+                    foreach (var master in doc.Descendants("master"))
+                    {
+                        foreach (var prod in master.Elements("product"))
+                        {
+                            var tblMaster = new TblMaster
+                            {
+                                Sku = prod.Element("sku")?.Value.Trim(),
+                                Name = prod.Element("name")?.Value,
+                                Inventory = ParseInt(prod.Element("inventory")?.Value),
+                                Price = ParseDecimal(prod.Element("price")?.Value),
+                                Category = prod.Element("category")?.Value
+                            };
+                            DatabaseHelper.InsertMaster(tblMaster, dbPath);
+                        }
+                    }
+                }
+
                 return result;
             }
             catch (Exception ex)

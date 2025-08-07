@@ -122,6 +122,7 @@ CREATE TABLE tblmaster (
     sku             TEXT,
     name            TEXT,
     inventory       INTEGER,
+    trxcount        INTEGER DEFAULT 0,
     price           NUMERIC DEFAULT 0,
     category        TEXT
 );
@@ -192,6 +193,23 @@ CREATE TABLE tbleod (
     othertender         NUMERIC DEFAULT 0,
     othertendercnt      INTEGER DEFAULT 0
 );
+CREATE INDEX IF NOT EXISTS idx_eod_date_cash_receiptstart_receiptend ON tbleod(date, cash, receiptstart, receiptend);
+");
+
+
+                    // tblEodQueryComputing
+                    CreateIfMissing("tblchecker", @"
+CREATE TABLE tblchecker (
+    date            TEXT,
+    pwdcnt          INTEGER DEFAULT 0,
+    trxcnt          INTEGER DEFAULT 0,
+    cash            NUMERIC DEFAULT 0,
+    receiptstart    TEXT,
+    receiptend      TEXT,
+    FOREIGN KEY (date) REFERENCES tbleod (date)
+
+);
+CREATE INDEX IF NOT EXISTS idx_checker_date_cash_receiptstart_receiptend ON tblchecker(date, cash, receiptstart, receiptend);
 ");
 
                     // tbllogs

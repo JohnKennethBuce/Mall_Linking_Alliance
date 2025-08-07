@@ -2,7 +2,7 @@
 using System.Data.Entity.Core.Metadata.Edm;
 using Tarsier.Database.Enums;
 
-namespace API_Reader.LocalStorage.Attibutes
+namespace Mall_Linking_Alliance.Model
 {
     #region Attributes
     /// <summary>

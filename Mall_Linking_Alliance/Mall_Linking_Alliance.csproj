@@ -80,6 +80,8 @@
     </Compile>
     <Compile Include="Helpers\DatabaseHelper.cs" />
     <Compile Include="Helpers\DatabaseInitializer.cs" />
+    <Compile Include="Helpers\EodGenerator.cs" />
+    <Compile Include="Helpers\EodXmlProcessor.cs" />
     <Compile Include="Helpers\Logger.cs" />
     <Compile Include="Helpers\SettingsManager.cs" />
     <Compile Include="Helpers\SettingsValidator.cs" />
